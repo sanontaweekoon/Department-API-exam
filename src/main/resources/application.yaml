@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: ${APPLICATION_NAME:department-api}
+
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/examdb}
+    username: ${DB_USERNAME:exam_user}
+    password: ${DB_PASSWORD:exam_pass}
+
+#  flyway:
+#    enabled: true
+#    locations: classpath:db/migration
+#    baseline-on-migrate: false
+
+  jpa:
+    properties:
+      hibernate:
+        generate_statistics: true
+        ddl-auto: validate
+        open-in-view: false
+
+server:
+  port: 8200
+  shutdown: graceful
+
+app:
+  instance-name: ${INSTANCE_NAME:department-api}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db
+
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      environment: ${APP_ENVIRONMENT:local}
+      instance: ${app.instance-name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      minimum-expected-value:
+        http.server.requests: 1ms
+      maximum-expected-value:
+        http.server.requests: 10s
+logging:
+  level:
+    org.hibernate.SQL: debug
+  structured:
+    format:
+      console: logstash
+      file: logstash
+    json:
+      add:
+        application: ${spring.application.name}
+        environment: ${APP_ENVIRONMENT:local}
+        instance: ${app.instance-name}
+  logback:
+    rollingpolicy:
+    max-file-size: 20MB
+    max-history: 3
+    total-size-cap: 200MB
+

@@ -1,0 +1,44 @@
+// Read the actual Spring Boot file appenders, never the Docker socket.
+loki.source.file "spring" {
+  targets = [
+    {__path__ = "/logs/app1/application.log", service = "spring-app", application = "app1", instance = "app-1", environment = sys.env("APP_ENVIRONMENT")},
+    {__path__ = "/logs/app2/application.log", service = "spring-app", application = "app2", instance = "app-2", environment = sys.env("APP_ENVIRONMENT")},
+  ]
+  forward_to = [loki.process.spring.receiver]
+}
+
+loki.source.file "nginx" {
+  targets = [
+    {__path__ = "/logs/nginx/lb_access.log", service = "nginx", log_type = "access", environment = sys.env("APP_ENVIRONMENT")},
+    {__path__ = "/logs/nginx/lb_error.log",  service = "nginx", log_type = "error",  environment = sys.env("APP_ENVIRONMENT")},
+  ]
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.process "spring" {
+  stage.json {
+    expressions = {timestamp = "\"@timestamp\"", severity = "level"}
+  }
+  stage.timestamp {
+    source = "timestamp"
+    format = "RFC3339Nano"
+  }
+  stage.labels {
+    values = {level = "severity"}
+  }
+  stage.label_drop {
+    values = ["filename"]
+  }
+  // Keep the complete JSON: escaped newlines in stack_trace remain one event.
+  // MDC trace/request/user IDs stay JSON fields, never stream labels.
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+  wal {
+    enabled = true
+  }
+}
